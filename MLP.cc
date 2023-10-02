@@ -8,9 +8,9 @@
 class NN {
  public:
   int nnInputSize = 3;
-  int nnHiddenSize_1 = 4;
-  int nnHiddenSize_2 = 4;
-  int nnOutputSize = 1;
+  int nnHiddenSize_1 = 2;
+  int nnHiddenSize_2 = 2;
+  int nnOutputSize = 2;
   double learn = 1;
 
   std::vector<double> nnInputNeurons;
@@ -67,6 +67,15 @@ class NN {
     return gen(rng);
   }
 
+  double layerSum(std::vector<double> errors,
+                  std::vector<std::vector<double>> weight, int index) {
+    double result = 0;
+    for (size_t j = 0; j < weight[index].size(); ++j) {
+      result += weight[index][j] * errors[j];
+    }
+    return result;
+  }
+
   void genWeight() {
     nnInputHiddenWeight.resize(nnInputSize);
     for (int i = 0; i < nnInputSize; ++i) {
@@ -93,7 +102,7 @@ class NN {
     }
   }
 
-  void train(double answer, std::vector<double> input) {
+  void train(std::vector<double> answer, std::vector<double> input) {
     feedForward(input);
     // std::cout << nnOutputNeurons[0] << std::endl;
 
@@ -101,50 +110,56 @@ class NN {
     std::vector<double> grad_1(nnHiddenSize_1);
     std::vector<double> error_2(nnHiddenSize_2);
     std::vector<double> grad_2(nnHiddenSize_2);
-    double error_3 = nnOutputNeurons[0] - answer;
-    double grad_3 = sigmoidDx(nnOutputNeurons[0]);
-    double weights_delta_3 = error_3 * grad_3;
+    // double error_3 = nnOutputNeurons[nIndex] - answer;
+    // double grad_3 = sigmoidDx(nnOutputNeurons[nIndex]);
+    // double weights_delta_3 = error_3 * grad_3;
+    std::vector<double> error_3(nnOutputSize);
+    std::vector<double> grad_3(nnOutputSize);
 
-    for (int i = 0; i < nnHiddenSize_2; ++i) {
-      for (int j = 0; j < nnOutputSize; ++j) {
-        nnHiddenOutputWeight[i][j] -=
-            nnHiddenNeurons_2[i] * weights_delta_3 * learn;
-        error_1[i] = nnHiddenOutputWeight[i][j] * weights_delta_3;
-      }
+    for (size_t i = 0; i < grad_3.size(); ++i) {
+      grad_3[i] = sigmoidDx(nnOutputNeurons[i]);
     }
 
     for (size_t i = 0; i < grad_2.size(); ++i) {
       grad_2[i] = sigmoidDx(nnHiddenNeurons_2[i]);
     }
 
-    std::vector<double> weights_delta_2;
-    for (size_t i = 0; i < grad_2.size(); ++i) {
-      weights_delta_2.push_back(error_2[i] * grad_2[i]);
-    }
-
-    for (int i = 0, z = 0; i < nnHiddenSize_1; ++i) {
-      for (int j = 0; j < nnHiddenSize_2; ++j) {
-        nnHiddenHiddenWeight[j][i] -=
-            nnHiddenNeurons_1[j] * weights_delta_2[z] * learn;
-      }
-      z++;
-    }
-
     for (size_t i = 0; i < grad_1.size(); ++i) {
       grad_1[i] = sigmoidDx(nnHiddenNeurons_1[i]);
     }
 
-    std::vector<double> weights_delta_1;
-    for (size_t i = 0; i < grad_1.size(); ++i) {
-      weights_delta_1.push_back(error_1[i] * grad_1[i]);
+    for (size_t i = 0; i < error_3.size(); ++i) {
+      // error_3[i] = pow(answer[i] - nnOutputNeurons[i], 2) / 2 * grad_3[i];
+      error_3[i] = nnOutputNeurons[i] - answer[i];
     }
 
-    for (int i = 0, z = 0; i < nnHiddenSize_1; ++i) {
-      for (int j = 0; j < nnInputSize; ++j) {
-        nnInputHiddenWeight[j][i] -=
-            nnInputNeurons[j] * weights_delta_1[z] * learn;
+    for (size_t i = 0; i < error_2.size(); ++i) {
+      error_2[i] = layerSum(error_3, nnHiddenOutputWeight, i);
+    }
+
+    for (size_t i = 0; i < error_1.size(); ++i) {
+      error_1[i] = layerSum(error_2, nnHiddenHiddenWeight, i);
+    }
+
+    for (int i = 0; i < nnHiddenSize_2; ++i) {
+      for (int j = 0; j < nnOutputSize; ++j) {
+        nnHiddenOutputWeight[i][j] -=
+            nnHiddenNeurons_2[i] * error_3[j] * grad_3[j] * learn;
       }
-      z++;
+    }
+
+    for (int i = 0; i < nnHiddenSize_1; ++i) {
+      for (int j = 0; j < nnHiddenSize_2; ++j) {
+        nnHiddenHiddenWeight[i][j] -=
+            nnHiddenNeurons_1[i] * error_2[j] * grad_2[j] * learn;
+      }
+    }
+
+    for (int i = 0; i < nnInputSize; ++i) {
+      for (int j = 0; j < nnHiddenSize_1; ++j) {
+        nnInputHiddenWeight[i][j] -=
+            nnInputNeurons[i] * error_1[j] * grad_1[j] * learn;
+      }
     }
   }
 };
@@ -162,7 +177,10 @@ int main() {
       {0, 0, 0}, {0, 0, 1}, {0, 1, 0}, {0, 1, 1},
       {1, 0, 0}, {1, 0, 1}, {1, 1, 0}, {1, 1, 1},
   };
-  std::vector<double> answerset = {0, 1, 0, 0, 1, 1, 0, 1};
+  std::vector<std::vector<double>> answerset = {{1, 0}, {0, 1}, {1, 0}, {1, 0},
+                                                {0, 1}, {0, 1}, {1, 0}, {0, 1}};
+  // std::vector<std::vector<double>> answerset = {{0}, {1}, {0}, {0},
+  //                                               {1}, {1}, {0}, {1}};
   one.nnInputNeurons.resize(one.nnInputSize);
   one.nnHiddenNeurons_1.resize(one.nnHiddenSize_1);
   one.nnHiddenNeurons_2.resize(one.nnHiddenSize_2);
@@ -189,19 +207,21 @@ int main() {
   // one.nnHiddenOutputWeight[0][0] = 0.5;
   // one.nnHiddenOutputWeight[1][0] = 0.52;
 
-  while (epoch < 5000) {
+  while (epoch < 100) {
     for (size_t i = 0; i < answerset.size(); ++i) {
       one.train(answerset[i], trainset[i]);
-      one.mse[i] = pow(one.nnOutputNeurons[0] - answerset[i], 2);
+      one.mse[i] = (pow(one.nnOutputNeurons[0] - answerset[i][0], 2)) +
+                   pow(one.nnOutputNeurons[1] - answerset[i][1], 2);
       // std::cout << one.nnOutputNeurons[0] << std::endl;
     }
     // one.feedForward({0, 1, 1});
     // std::cout << one.nnOutputNeurons[0] << std::endl;
     epoch++;
-    if (epoch % 100 == 0) {
+    if (epoch % 1 == 0) {
       // double sum_of_elems = 0;
       // for (auto& n : one.mse) sum_of_elems += n;
-      std::cout << epoch << " epoch has ended ";
+      std::cout << epoch << std::fixed << std::setprecision(4)
+                << " epoch has ended " << std::endl;
       std::cout << std::fixed << std::setprecision(4) << "error - "
                 << std::reduce(one.mse.begin(), one.mse.end()) / 8 << std::endl;
     }
@@ -211,8 +231,11 @@ int main() {
     one.feedForward(trainset[i]);
     std::cout << "Input - ";
     print(trainset[i]);
-    std::cout << "expected - " << answerset[i] << " ";
-    std::cout << "predict - " << one.nnOutputNeurons[0] << std::endl;
+    std::cout << "expected - ";
+    print(answerset[i]);
+    std::cout << "predict - ";
+    print(one.nnOutputNeurons);
+    std::cout << std::endl;
   }
 
   // std::cout << one.nnOutputNeurons[0] << std::endl;
