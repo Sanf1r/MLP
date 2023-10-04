@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <fstream>
@@ -10,15 +11,19 @@
 class NN {
  public:
   int nnInputSize = 784;
-  int nnHiddenSize_1 = 100;
-  int nnHiddenSize_2 = 100;
+  int nnHiddenSize_1 = 120;
+  int nnHiddenSize_2 = 120;
   int nnOutputSize = 26;
-  double learn = 0.3;
+  double learn = 0.025;
 
   std::vector<double> nnInputNeurons;
   std::vector<double> nnHiddenNeurons_1;
   std::vector<double> nnHiddenNeurons_2;
   std::vector<double> nnOutputNeurons;
+
+  std::vector<double> bias_1;
+  std::vector<double> bias_2;
+  std::vector<double> bias_3;
 
   std::vector<std::vector<double>> nnInputHiddenWeight;
   std::vector<std::vector<double>> nnHiddenHiddenWeight;
@@ -26,7 +31,12 @@ class NN {
 
   std::vector<double> mse;
 
-  NN() { mse.resize(88800); }
+  NN() {
+    mse.resize(88800);
+    bias_1.resize(nnHiddenSize_1);
+    bias_2.resize(nnHiddenSize_2);
+    bias_3.resize(nnOutputSize);
+  }
 
   double sigmoid(double x) { return 1 / (1 + exp(-x)); }
   double sigmoidDx(double x) {
@@ -41,7 +51,7 @@ class NN {
       for (int j = 0; j < nnInputSize; ++j) {
         result += input[j] * nnInputHiddenWeight[j][i];
       }
-      nnHiddenNeurons_1[i] = sigmoid(result);
+      nnHiddenNeurons_1[i] = sigmoid(result + bias_1[i]);
     }
 
     for (int i = 0; i < nnHiddenSize_2; ++i) {
@@ -49,7 +59,7 @@ class NN {
       for (int j = 0; j < nnHiddenSize_1; ++j) {
         result += nnHiddenNeurons_1[j] * nnHiddenHiddenWeight[j][i];
       }
-      nnHiddenNeurons_2[i] = sigmoid(result);
+      nnHiddenNeurons_2[i] = sigmoid(result + bias_2[i]);
     }
 
     for (int i = 0; i < nnOutputSize; ++i) {
@@ -57,15 +67,15 @@ class NN {
       for (int j = 0; j < nnHiddenSize_2; ++j) {
         result += nnHiddenNeurons_2[j] * nnHiddenOutputWeight[j][i];
       }
-      nnOutputNeurons[i] = sigmoid(result);
+      nnOutputNeurons[i] = sigmoid(result + bias_3[i]);
     }
   }
 
-  double genXavier(double x, double y) {
+  double genXavier(double x) {
     std::random_device dev;
     std::mt19937 rng(dev());
-    std::uniform_real_distribution<double> gen(
-        -(std::sqrt(6) / std::sqrt(x + y)), (std::sqrt(6) / std::sqrt(x + y)));
+    std::uniform_real_distribution<double> gen(-(std::sqrt(6.0) / std::sqrt(x)),
+                                               (std::sqrt(6.0) / std::sqrt(x)));
     return gen(rng);
   }
 
@@ -83,7 +93,7 @@ class NN {
     for (int i = 0; i < nnInputSize; ++i) {
       nnInputHiddenWeight[i].resize(nnHiddenSize_1);
       for (int j = 0; j < nnHiddenSize_1; ++j) {
-        nnInputHiddenWeight[i][j] = genXavier(nnInputSize, nnHiddenSize_1);
+        nnInputHiddenWeight[i][j] = genXavier(nnInputSize + nnHiddenSize_1);
       }
     }
 
@@ -91,7 +101,7 @@ class NN {
     for (int i = 0; i < nnHiddenSize_1; ++i) {
       nnHiddenHiddenWeight[i].resize(nnHiddenSize_2);
       for (int j = 0; j < nnHiddenSize_2; ++j) {
-        nnHiddenHiddenWeight[i][j] = genXavier(nnHiddenSize_1, nnHiddenSize_2);
+        nnHiddenHiddenWeight[i][j] = genXavier(nnHiddenSize_1 + nnHiddenSize_2);
       }
     }
 
@@ -99,9 +109,15 @@ class NN {
     for (int i = 0; i < nnHiddenSize_2; ++i) {
       nnHiddenOutputWeight[i].resize(nnOutputSize);
       for (int j = 0; j < nnOutputSize; ++j) {
-        nnHiddenOutputWeight[i][j] = genXavier(nnHiddenSize_2, nnOutputSize);
+        nnHiddenOutputWeight[i][j] = genXavier(nnHiddenSize_2 + nnOutputSize);
       }
     }
+
+    //   for (double &data : bias_1) data = genXavier(nnInputSize,
+    //   nnHiddenSize_1); for (double &data : bias_2)
+    //     data = genXavier(nnHiddenSize_1, nnHiddenSize_2);
+    //   for (double &data : bias_3) data = genXavier(nnHiddenSize_2,
+    //   nnOutputSize);
   }
 
   void train(std::vector<double> &answer, std::vector<double> &input) {
@@ -128,7 +144,8 @@ class NN {
     }
 
     for (size_t i = 0; i < error_3.size(); ++i) {
-      error_3[i] = nnOutputNeurons[i] - answer[i];
+      // error_3[i] = std::pow(nnOutputNeurons[i] - answer[i], 2) / 2;
+      error_3[i] = answer[i] - nnOutputNeurons[i];
     }
 
     for (size_t i = 0; i < error_2.size(); ++i) {
@@ -142,22 +159,32 @@ class NN {
     for (int i = 0; i < nnHiddenSize_2; ++i) {
       double tmp = nnHiddenNeurons_2[i] * learn;
       for (int j = 0; j < nnOutputSize; ++j) {
-        nnHiddenOutputWeight[i][j] -= error_3[j] * grad_3[j] * tmp;
+        nnHiddenOutputWeight[i][j] += error_3[j] * tmp * grad_3[j];
       }
     }
 
     for (int i = 0; i < nnHiddenSize_1; ++i) {
       double tmp = nnHiddenNeurons_1[i] * learn;
       for (int j = 0; j < nnHiddenSize_2; ++j) {
-        nnHiddenHiddenWeight[i][j] -= error_2[j] * grad_2[j] * tmp;
+        nnHiddenHiddenWeight[i][j] += error_2[j] * tmp * grad_2[j];
       }
     }
 
     for (int i = 0; i < nnInputSize; ++i) {
       double tmp = nnInputNeurons[i] * learn;
       for (int j = 0; j < nnHiddenSize_1; ++j) {
-        nnInputHiddenWeight[i][j] -= error_1[j] * grad_1[j] * tmp;
+        nnInputHiddenWeight[i][j] += error_1[j] * tmp * grad_1[j];
       }
+    }
+
+    for (size_t i = 0; i < bias_3.size(); ++i) {
+      bias_3[i] += learn * error_3[i] * grad_3[i];
+    }
+    for (size_t i = 0; i < bias_2.size(); ++i) {
+      bias_2[i] += learn * error_2[i] * grad_2[i];
+    }
+    for (size_t i = 0; i < bias_1.size(); ++i) {
+      bias_1[i] += learn * error_1[i] * grad_1[i];
     }
   }
 };
@@ -171,7 +198,7 @@ void print(std::vector<double> &x) {
 bool results(std::vector<double> &ans, std::vector<double> &out) {
   int ansIndex = 0;
   for (size_t i = 0; i < ans.size(); ++i) {
-    if (ans[i] == 1.0) {
+    if (ans[i] > 0.0) {
       ansIndex = i;
       break;
     }
@@ -203,7 +230,7 @@ void parseData(const std::string &file, std::vector<std::vector<double>> &vect,
         answers[t][std::stod(temp) - 1] = 1;
         ans = false;
       } else {
-        vect[t].push_back(std::stod(temp) / 255);
+        vect[t].push_back(std::stod(temp) / 255.0);
       }
     }
     ++t;
@@ -218,32 +245,32 @@ void parseData(const std::string &file, std::vector<std::vector<double>> &vect,
 double mean(std::vector<double> &out, std::vector<double> &ans) {
   double result = 0;
   for (size_t i = 0; i < out.size(); ++i) {
+    // result += std::pow(out[i] - ans[i], 2);
     result += std::pow(out[i] - ans[i], 2);
   }
   return result;
 }
 
 void accur(std::vector<std::vector<double>> &data,
-           std::vector<std::vector<double>> &ans, NN one) {
+           std::vector<std::vector<double>> &ans, NN &one) {
   int acc = 0;
   for (size_t i = 0; i < ans.size(); ++i) {
     one.feedForward(data[i]);
-    // std::cout << "Input - ";
-    // print(trainset[i]);
-    // std::cout << "expected - ";
-    // print(answerset[i]);
-    // std::cout << "predict - ";
-    // print(one.nnOutputNeurons);
     if (results(ans[i], one.nnOutputNeurons)) {
       ++acc;
-      // std::cout << "SUCCESS";
-    } else {
-      // std::cout << "FAILED";
     }
-    // std::cout << std::endl;
   }
-  std::cout << std::setprecision(1) << acc / (double)ans.size() * 100 << "%"
+  std::cout << std::setprecision(4) << acc / (double)ans.size() * 100 << "%"
             << std::endl;
+}
+
+void shuffleData(std::vector<std::vector<double>> &trainset,
+                 std::vector<std::vector<double>> &answerset) {
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::shuffle(trainset.begin(), trainset.end(),
+               std::default_random_engine(seed));
+  std::shuffle(answerset.begin(), answerset.end(),
+               std::default_random_engine(seed));
 }
 
 int main() {
@@ -301,11 +328,13 @@ int main() {
       one.train(answerset[i], trainset[i]);
       one.mse[i] = mean(one.nnOutputNeurons, answerset[i]) / one.nnOutputSize;
     }
+    std::cout << "mse = " << one.mse[0] << std::endl;
     auto t2 = std::chrono::high_resolution_clock::now();
     auto duration =
         std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count();
     // one.feedForward({0, 1, 1});
     // std::cout << one.nnOutputNeurons[0] << std::endl;
+    shuffleData(trainset, answerset);
     epoch++;
     if (epoch % 1 == 0) {
       // double sum_of_elems = 0;
