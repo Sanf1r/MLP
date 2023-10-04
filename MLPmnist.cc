@@ -10,10 +10,10 @@
 class NN {
  public:
   int nnInputSize = 784;
-  int nnHiddenSize_1 = 1000;
-  int nnHiddenSize_2 = 1000;
+  int nnHiddenSize_1 = 100;
+  int nnHiddenSize_2 = 100;
   int nnOutputSize = 26;
-  double learn = 0.025;
+  double learn = 0.3;
 
   std::vector<double> nnInputNeurons;
   std::vector<double> nnHiddenNeurons_1;
@@ -193,7 +193,8 @@ void parseData(const std::string &file, std::vector<std::vector<double>> &vect,
   std::string line;
   std::string temp;
   int t = 0;
-
+  std::cout << "parse start" << std::endl;
+  auto t1 = std::chrono::high_resolution_clock::now();
   while (std::getline(infile, line)) {
     bool ans = true;
     std::istringstream ss(line);
@@ -207,6 +208,10 @@ void parseData(const std::string &file, std::vector<std::vector<double>> &vect,
     }
     ++t;
   }
+  auto t2 = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count();
+  std::cout << "parse end, time - " << duration << std::endl;
   infile.close();
 }
 
