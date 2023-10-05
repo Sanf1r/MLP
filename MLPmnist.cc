@@ -11,15 +11,26 @@
 class NN {
  public:
   int nnInputSize = 784;
-  int nnHiddenSize_1 = 120;
-  int nnHiddenSize_2 = 120;
+  int nnHiddenSize_1 = 128;
+  int nnHiddenSize_2 = 128;
   int nnOutputSize = 26;
-  double learn = 0.025;
+
+  // double learn = 0.3;   mse 0.067  acc 86%
+  // double learn = 0.4;   mse 0.0073 acc 83%
+  // double learn = 0.35;  mse 0.0070 acc 85%
+  // double learn = 0.2;   mse 0.0067 acc 85.3%
+  // double learn = 0.25;  mse 0.0067 acc 85.89%
+  // double learn = 0.325; mse 0.0068 acc 84.72%
+  double learn = 0.3;
 
   std::vector<double> nnInputNeurons;
   std::vector<double> nnHiddenNeurons_1;
   std::vector<double> nnHiddenNeurons_2;
   std::vector<double> nnOutputNeurons;
+
+  std::vector<double> error_1;
+  std::vector<double> error_2;
+  std::vector<double> error_3;
 
   std::vector<double> bias_1;
   std::vector<double> bias_2;
@@ -36,9 +47,12 @@ class NN {
     bias_1.resize(nnHiddenSize_1);
     bias_2.resize(nnHiddenSize_2);
     bias_3.resize(nnOutputSize);
+    error_1.resize(nnHiddenSize_1);
+    error_2.resize(nnHiddenSize_2);
+    error_3.resize(nnOutputSize);
   }
 
-  double sigmoid(double x) { return 1 / (1 + exp(-x)); }
+  double sigmoid(double x) { return 1.0 / (1.0 + exp(-x)); }
   double sigmoidDx(double x) {
     if (fabs(x) < ((1e-9))) return 0.0;
     return x * (1.0 - x);
@@ -123,68 +137,43 @@ class NN {
   void train(std::vector<double> &answer, std::vector<double> &input) {
     feedForward(input);
 
-    std::vector<double> error_1(nnHiddenSize_1);
-    std::vector<double> grad_1(nnHiddenSize_1);
-    std::vector<double> error_2(nnHiddenSize_2);
-    std::vector<double> grad_2(nnHiddenSize_2);
-
-    std::vector<double> error_3(nnOutputSize);
-    std::vector<double> grad_3(nnOutputSize);
-
-    for (int i = 0; i < nnOutputSize; ++i) {
-      grad_3[i] = sigmoidDx(nnOutputNeurons[i]);
-    }
-
-    for (int i = 0; i < nnHiddenSize_2; ++i) {
-      grad_2[i] = sigmoidDx(nnHiddenNeurons_2[i]);
-    }
-
-    for (int i = 0; i < nnHiddenSize_1; ++i) {
-      grad_1[i] = sigmoidDx(nnHiddenNeurons_1[i]);
-    }
-
     for (size_t i = 0; i < error_3.size(); ++i) {
-      // error_3[i] = std::pow(nnOutputNeurons[i] - answer[i], 2) / 2;
-      error_3[i] = answer[i] - nnOutputNeurons[i];
+      error_3[i] =
+          (answer[i] - nnOutputNeurons[i]) * sigmoidDx(nnOutputNeurons[i]);
+      bias_3[i] += learn * error_3[i];
     }
 
     for (size_t i = 0; i < error_2.size(); ++i) {
-      error_2[i] = layerSum(error_3, nnHiddenOutputWeight, i);
+      error_2[i] = layerSum(error_3, nnHiddenOutputWeight, i) *
+                   sigmoidDx(nnHiddenNeurons_2[i]);
+      bias_2[i] += learn * error_2[i];
     }
 
     for (size_t i = 0; i < error_1.size(); ++i) {
-      error_1[i] = layerSum(error_2, nnHiddenHiddenWeight, i);
+      error_1[i] = layerSum(error_2, nnHiddenHiddenWeight, i) *
+                   sigmoidDx(nnHiddenNeurons_1[i]);
+      bias_1[i] += learn * error_1[i];
     }
 
     for (int i = 0; i < nnHiddenSize_2; ++i) {
       double tmp = nnHiddenNeurons_2[i] * learn;
       for (int j = 0; j < nnOutputSize; ++j) {
-        nnHiddenOutputWeight[i][j] += error_3[j] * tmp * grad_3[j];
+        nnHiddenOutputWeight[i][j] += error_3[j] * tmp;
       }
     }
 
     for (int i = 0; i < nnHiddenSize_1; ++i) {
       double tmp = nnHiddenNeurons_1[i] * learn;
       for (int j = 0; j < nnHiddenSize_2; ++j) {
-        nnHiddenHiddenWeight[i][j] += error_2[j] * tmp * grad_2[j];
+        nnHiddenHiddenWeight[i][j] += error_2[j] * tmp;
       }
     }
 
     for (int i = 0; i < nnInputSize; ++i) {
       double tmp = nnInputNeurons[i] * learn;
       for (int j = 0; j < nnHiddenSize_1; ++j) {
-        nnInputHiddenWeight[i][j] += error_1[j] * tmp * grad_1[j];
+        nnInputHiddenWeight[i][j] += error_1[j] * tmp;
       }
-    }
-
-    for (size_t i = 0; i < bias_3.size(); ++i) {
-      bias_3[i] += learn * error_3[i] * grad_3[i];
-    }
-    for (size_t i = 0; i < bias_2.size(); ++i) {
-      bias_2[i] += learn * error_2[i] * grad_2[i];
-    }
-    for (size_t i = 0; i < bias_1.size(); ++i) {
-      bias_1[i] += learn * error_1[i] * grad_1[i];
     }
   }
 };
@@ -196,26 +185,16 @@ void print(std::vector<double> &x) {
 }
 
 bool results(std::vector<double> &ans, std::vector<double> &out) {
-  int ansIndex = 0;
-  for (size_t i = 0; i < ans.size(); ++i) {
-    if (ans[i] > 0.0) {
-      ansIndex = i;
-      break;
-    }
-  }
-  double max = 0;
-  int outIndex = 0;
-  for (size_t i = 0; i < out.size(); ++i) {
-    if (out[i] > max) {
-      max = out[i];
-      outIndex = i;
-    }
-  }
+  size_t ansIndex =
+      std::distance(ans.begin(), std::max_element(ans.begin(), ans.end()));
+  size_t outIndex =
+      std::distance(out.begin(), std::max_element(out.begin(), out.end()));
   return (ansIndex == outIndex) ? true : false;
 }
 
 void parseData(const std::string &file, std::vector<std::vector<double>> &vect,
                std::vector<std::vector<double>> &answers) {
+  double norm = 1.0 / 255.0;
   std::ifstream infile(file);
   std::string line;
   std::string temp;
@@ -227,10 +206,11 @@ void parseData(const std::string &file, std::vector<std::vector<double>> &vect,
     std::istringstream ss(line);
     while (std::getline(ss, temp, ',')) {
       if (ans) {
-        answers[t][std::stod(temp) - 1] = 1;
+        answers[t][std::stod(temp) - 1.0] = 1.0;
         ans = false;
       } else {
-        vect[t].push_back(std::stod(temp) / 255.0);
+        vect[t].push_back(std::stod(temp) * norm);
+        // vect[t].push_back(std::stod(temp) / 127.5 - 1.0);
       }
     }
     ++t;
@@ -243,7 +223,7 @@ void parseData(const std::string &file, std::vector<std::vector<double>> &vect,
 }
 
 double mean(std::vector<double> &out, std::vector<double> &ans) {
-  double result = 0;
+  double result = 0.0;
   for (size_t i = 0; i < out.size(); ++i) {
     // result += std::pow(out[i] - ans[i], 2);
     result += std::pow(out[i] - ans[i], 2);
@@ -260,7 +240,7 @@ void accur(std::vector<std::vector<double>> &data,
       ++acc;
     }
   }
-  std::cout << std::setprecision(4) << acc / (double)ans.size() * 100 << "%"
+  std::cout << std::setprecision(4) << (double)acc / ans.size() * 100 << "%"
             << std::endl;
 }
 
@@ -276,6 +256,7 @@ void shuffleData(std::vector<std::vector<double>> &trainset,
 int main() {
   NN one;
   int epoch = 0;
+  double mseKon = 1.0 / one.nnOutputSize;
   // std::vector<std::vector<double>> trainset = {
   //     {0, 0, 0}, {0, 0, 1}, {0, 1, 0}, {0, 1, 1},
   //     {1, 0, 0}, {1, 0, 1}, {1, 1, 0}, {1, 1, 1},
@@ -322,11 +303,11 @@ int main() {
   // one.nnHiddenOutputWeight[0][0] = 0.5;
   // one.nnHiddenOutputWeight[1][0] = 0.52;
 
-  while (epoch < 20) {
+  while (epoch < 5) {
     auto t1 = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < answerset.size(); ++i) {
       one.train(answerset[i], trainset[i]);
-      one.mse[i] = mean(one.nnOutputNeurons, answerset[i]) / one.nnOutputSize;
+      one.mse[i] = mean(one.nnOutputNeurons, answerset[i]) * mseKon;
     }
     std::cout << "mse = " << one.mse[0] << std::endl;
     auto t2 = std::chrono::high_resolution_clock::now();
@@ -346,6 +327,7 @@ int main() {
                 << std::endl;
       std::cout << "time - " << duration << std::endl;
       accur(testset, answersetTest, one);
+      // accur(trainset, answerset, one);
     }
   }
 
