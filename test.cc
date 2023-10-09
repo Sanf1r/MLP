@@ -17,8 +17,18 @@ int main() {
   // shuffle(one, two);
   // for (auto &data : one) std::cout << data << " ";
   // std::distance(one.begin(), std::max_element(one.begin(), one.end()));
-  std::cout << std::distance(one.begin(),
-                             std::max_element(one.begin(), one.end()))
-            << std::endl;
+  // std::cout << std::distance(one.begin(),
+  //                            std::max_element(one.begin(), one.end()))
+  //           << std::endl;
+  for (size_t i = 0; i < one.size() - 1; ++i) {
+    for (size_t j = one.size() - 1; j > i; --j) {
+      if (one[j - 1] > one[j]) {
+        double tmp = one[j];
+        one[j] = one[j - 1];
+        one[j - 1] = tmp;
+      }
+    }
+  }
+  for (auto &data : one) std::cout << data << " ";
   // for (auto &data : two) std::cout << data << " ";
 }
