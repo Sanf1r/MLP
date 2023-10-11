@@ -11,10 +11,22 @@
 //   std::shuffle(two.begin(), two.end(), std::default_random_engine(seed));
 // }
 
-void shuffleData(std::vector<float> &one) {
-  auto rng = std::default_random_engine{};
-  std::shuffle(one.begin(), one.end(), rng);
-}
+// void shuffleData(std::vector<float> &one) {
+//   auto rng = std::default_random_engine{};
+//   std::shuffle(one.begin(), one.end(), rng);
+// }
+class NN {
+  class Neuron {
+   private:
+    int a = 5;
+  };
+  class Graph {
+   private:
+    int idLeft;
+    int idRight;
+    float cost;
+  }
+};
 
 int main() {
   std::vector<float> one = {1, 2, 3, 10, 4, 5};

@@ -12,56 +12,57 @@
 
 class Neuron {
  private:
-  float value = 0.0;
-  float error = 0.0;
-  float bias = 0.0;
+  float value_ = 0.0;
+  float error_ = 0.0;
+  float bias_ = 0.0;
 
  public:
-  void setValue(float x) { value = x; }
-  void setError(float x) { error = x; }
-  void setBias(float x) { bias = x; }
+  void setValue(float x) { value_ = x; }
+  void setError(float x) { error_ = x; }
+  void setBias(float x) { bias_ = x; }
 
-  float getValue() { return value; }
-  float getError() { return error; }
-  float getBias() { return bias; }
+  float getValue() { return value_; }
+  float getError() { return error_; }
+  float getBias() { return bias_; }
+
+  void activate() { value_ = 1.0 / (1.0 + exp(-value_)); }
+
+  float sigmoidDx() { return value_ * (1.0 - value_); }
 };
 
 class Layer {
  private:
-  int leftNeurons;
-  int rightNeurons;
+  int leftNeurons_;
+  int rightNeuron_;
   std::vector<std::vector<float>> LayerWeights;
-
-  float genXavier(float x) {
-    std::random_device dev;
-    std::mt19937 rng(dev());
-    std::uniform_real_distribution<float> gen(-(std::sqrt(6.0) / std::sqrt(x)),
-                                              (std::sqrt(6.0) / std::sqrt(x)));
-    return gen(rng);
-  }
 
  public:
   Layer(int leftNeurons, int rightNeurons) {
     if (leftNeurons < 1 || rightNeurons < 1) {
       throw std::runtime_error("ERROR!");
     } else {
-      this->leftNeurons = leftNeurons;
-      this->rightNeurons = rightNeurons;
-      LayerWeights.resize(leftNeurons);
-      for (int i = 0; i < leftNeurons; ++i) {
-        LayerWeights[i].resize(rightNeurons);
-        for (int j = 0; j < rightNeurons; ++j) {
-          LayerWeights[i][j] = genXavier(leftNeurons + rightNeurons);
+      leftNeurons_ = leftNeurons;
+      rightNeuron_ = rightNeurons;
+      std::random_device dev;
+      std::mt19937 rng(dev());
+      std::uniform_real_distribution<float> gen(
+          -(std::sqrt(6.0) / std::sqrt(leftNeurons_ + rightNeuron_)),
+          (std::sqrt(6.0) / std::sqrt(leftNeurons_ + rightNeuron_)));
+      LayerWeights.resize(leftNeurons_);
+      for (int i = 0; i < leftNeurons_; ++i) {
+        LayerWeights[i].resize(rightNeuron_);
+        for (int j = 0; j < rightNeuron_; ++j) {
+          LayerWeights[i][j] = gen(rng);
         }
       }
     }
   }
 
-  float getRightNeurons() { return rightNeurons; }
+  float getRightNeurons() { return rightNeuron_; }
 
   float &operator()(int row, int columns) {
-    if ((row >= leftNeurons || row < 0) ||
-        (columns >= rightNeurons || columns < 0)) {
+    if ((row >= leftNeurons_ || row < 0) ||
+        (columns >= rightNeuron_ || columns < 0)) {
       throw std::out_of_range("Incorrect input, index is out of range\n");
     }
     return LayerWeights[row][columns];
@@ -89,7 +90,6 @@ class NN {
   float learn = 0.3;
 
   NN(int input) {
-    mse.resize(88800);
     layersSize = input + 1;
     for (int i = 0; i <= layersSize; ++i) {
       if (i == 0) {
@@ -107,13 +107,6 @@ class NN {
     }
   }
 
-  float sigmoid(float x) { return 1.0 / (1.0 + exp(-x)); }
-
-  float sigmoidDx(float x) {
-    if (fabs(x) < ((1e-9))) return 0.0;
-    return x * (1.0 - x);
-  }
-
   void feedForward(std::vector<float> &input) {
     for (int i = 0; i < nnInputSize; ++i) {
       wholeNeurons[0][i].setValue(input[i]);
@@ -125,8 +118,9 @@ class NN {
         for (int j = 0; j < nnStruct[k]; ++j) {
           result += wholeNeurons[k][j].getValue() * weightMatrix[k](j, i);
         }
-        wholeNeurons[k + 1][i].setValue(
-            sigmoid(result + wholeNeurons[k + 1][i].getBias()));
+        wholeNeurons[k + 1][i].setValue(result +
+                                        wholeNeurons[k + 1][i].getBias());
+        wholeNeurons[k + 1][i].activate();
       }
     }
   }
@@ -146,7 +140,7 @@ class NN {
       float t = (i == answer) ? 1.0 : 0.0;
       wholeNeurons[layersSize][i].setError(
           (t - wholeNeurons[layersSize][i].getValue()) *
-          sigmoidDx(wholeNeurons[layersSize][i].getValue()));
+          wholeNeurons[layersSize][i].sigmoidDx());
 
       wholeNeurons[layersSize][i].setBias(
           wholeNeurons[layersSize][i].getBias() +
@@ -157,7 +151,7 @@ class NN {
       for (int i = 0; i < nnStruct[k]; ++i) {
         wholeNeurons[k][i].setError(
             layerSum(wholeNeurons[k + 1], weightMatrix[k], i) *
-            sigmoidDx(wholeNeurons[k][i].getValue()));
+            wholeNeurons[k][i].sigmoidDx());
         wholeNeurons[k][i].setBias(wholeNeurons[k][i].getBias() +
                                    learn * wholeNeurons[k][i].getError());
       }
@@ -279,7 +273,7 @@ int main() {
     auto t1 = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < lineC; ++i) {
       one.train(trSet[i].first, trSet[i].second);
-      one.mse[i] = one.mean(trSet[i].first) * mseKon;
+      one.mse.push_back(one.mean(trSet[i].first) * mseKon);
     }
     auto t2 = std::chrono::high_resolution_clock::now();
     auto duration =
@@ -293,6 +287,7 @@ int main() {
               << std::endl;
     std::cout << "time - " << duration << std::endl;
     one.accur(testSet);
+    one.mse.clear();
   }
   std::cout << "Train end" << std::endl;
 
