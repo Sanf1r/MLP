@@ -15,21 +15,32 @@
 //   auto rng = std::default_random_engine{};
 //   std::shuffle(one.begin(), one.end(), rng);
 // }
-class NN {
-  class Neuron {
-   private:
-    int a = 5;
-  };
-  class Graph {
-   private:
-    int idLeft;
-    int idRight;
-    float cost;
-  }
-};
+// class NN {
+//   class Neuron {
+//    private:
+//     int a = 5;
+//   };
+//   class Graph {
+//    private:
+//     int idLeft;
+//     int idRight;
+//     float cost;
+//   }
+// };
 
 int main() {
-  std::vector<float> one = {1, 2, 3, 10, 4, 5};
+  int one[] = {1, 2};
+  int length = sizeof(one) / sizeof(int);
+  int k = 2;
+  for (int i = 0; i < k; ++i) {
+    int tmp = one[length - 1];
+    for (int i = length - 1; i > 0; --i) {
+      one[i] = one[i - 1];
+    }
+    one[0] = tmp;
+  }
+  for (auto data : one) std::cout << data << std::endl;
+  // std::vector<float> one = {1, 2, 3, 10, 4, 5};
   // std::vector<double> two = {1, 2, 3, 4, 5};
   // shuffle(one, two);
   // for (auto &data : one) std::cout << data << " ";
@@ -46,17 +57,17 @@ int main() {
   //     }
   //   }
   // }
-  shuffleData(one);
-  for (auto &data : one) std::cout << data << " ";
-  std::cout << std::endl;
-  shuffleData(one);
-  for (auto &data : one) std::cout << data << " ";
-  std::cout << std::endl;
-  shuffleData(one);
-  for (auto &data : one) std::cout << data << " ";
-  std::cout << std::endl;
-  shuffleData(one);
-  for (auto &data : one) std::cout << data << " ";
-  std::cout << std::endl;
+  // shuffleData(one);
+  // for (auto &data : one) std::cout << data << " ";
+  // std::cout << std::endl;
+  // shuffleData(one);
+  // for (auto &data : one) std::cout << data << " ";
+  // std::cout << std::endl;
+  // shuffleData(one);
+  // for (auto &data : one) std::cout << data << " ";
+  // std::cout << std::endl;
+  // shuffleData(one);
+  // for (auto &data : one) std::cout << data << " ";
+  // std::cout << std::endl;
   // for (auto &data : two) std::cout << data << " ";
 }

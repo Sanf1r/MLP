@@ -11,6 +11,8 @@
 #include <utility>
 #include <vector>
 
+#define INF 1.0 / 0.0
+
 class Neuron {
  private:
   int id_ = 0;
@@ -35,38 +37,13 @@ class Neuron {
   float sigmoidDx() { return value_ * (1.0 - value_); }
 };
 
-class Graph {
- private:
-  std::shared_ptr<Neuron> left_;
-  std::shared_ptr<Neuron> right_;
-  float cost_;
-
-  float genXavier(float x) {
-    std::random_device dev;
-    std::mt19937 rng(dev());
-    std::uniform_real_distribution<float> gen(-(std::sqrt(6.0) / std::sqrt(x)),
-                                              (std::sqrt(6.0) / std::sqrt(x)));
-    return gen(rng);
-  }
-
- public:
-  Graph(std::shared_ptr<Neuron> left, std::shared_ptr<Neuron> right,
-        float layer) {
-    left_ = left;
-    right_ = right;
-    cost_ = genXavier(layer);
-  }
-
-  std::shared_ptr<Neuron> getLeft() { return left_; }
-  std::shared_ptr<Neuron> getRight() { return right_; }
-};
-
 class NN {
  public:
-  int totalGraphs;
   int layersSize;
   std::vector<int> nnStruct;
-  std::vector<Graph> allGraphs;
+  std::vector<std::vector<float>> adjMatrix_;
+  int totalNeurons;
+  std::vector<Neuron> neurons;
   std::vector<float> mse;
   int nnInputSize = 784;
   int nnHiddenSize = 155;
@@ -94,34 +71,33 @@ class NN {
       }
     }
 
-    for (int i = sumStruct(0); i < sumStructInclude(0); ++i) {
-      std::shared_ptr<Neuron> insert(new Neuron(i));
-      for (int j = sumStruct(1); j < sumStructInclude(1); ++j) {
-        std::shared_ptr<Neuron> insertTwo(new Neuron(j));
-        allGraphs.push_back(
-            Graph(insert, insertTwo, nnStruct[0] + nnStruct[1]));
-      }
+    totalNeurons = std::reduce(nnStruct.begin(), nnStruct.end());
+
+    adjMatrix_.resize(totalNeurons);
+    for (int i = 0; i < totalNeurons; ++i) {
+      adjMatrix_[i].resize(totalNeurons, INF);
     }
 
-    for (int k = 1; k < layersSize; ++k) {  // TO DO!
-      for (int i = startIndex(k); i < startIndex(1) + nnStruct[k]; ++i) {
-        std::shared_ptr<Neuron> insert = allGraphs[i].getRight();
-        for (int j = sumStruct(k); j < sumStructInclude(k); ++j) {
-          std::shared_ptr<Neuron> insertTwo(new Neuron(j));
-          allGraphs.push_back(
-              Graph(insert, insertTwo, nnStruct[k] + nnStruct[k + 1]));
+    // for (int i = 0; i < totalNeurons; ++i) {
+    //   for (int j = 0; j < totalNeurons; ++j) {
+    //     adjMatrix_[i][j] = INF;
+    //   }
+    // }
+
+    for (int k = 0; k <= layersSize; ++k) {
+      std::random_device dev;
+      std::mt19937 rng(dev());
+      std::uniform_real_distribution<float> gen(
+          -(std::sqrt(6.0) / std::sqrt(nnStruct[k] + nnStruct[k + 1])),
+          (std::sqrt(6.0) / std::sqrt(nnStruct[k] + nnStruct[k + 1])));
+      for (int i = sumStruct(k); i < sumStruct(k + 1); ++i) {
+        for (int j = sumStruct(k + 1); j < sumStructInclude(k + 1); ++j) {
+          adjMatrix_[i][j] = gen(rng);
         }
       }
     }
-  }
 
-  int startIndex(int x) {
-    int result = 1;
-    if (x == 1) return 0;
-    for (int i = 0; i < x; ++i) {
-      result *= nnStruct[i];
-    }
-    return result;
+    neurons.reserve(totalNeurons);
   }
 
   int sumStruct(int k) {
@@ -142,69 +118,74 @@ class NN {
     return result;
   }
 
-  // void feedForward(std::vector<float> &input) {
-  //   for (int i = 0; i < nnInputSize * nnStruct[1]; ++i) {
-  //     wholeNeurons[0][i].setValue(input[i]);
-  //   }
+  void printOut() {
+    for (int i = sumStruct(layersSize); i < sumStructInclude(layersSize); ++i) {
+      std::cout << neurons[i].getValue() << " - " << i << std::endl;
+    }
+  }
 
-  //   for (int k = 0; k < layersSize; ++k) {
-  //     for (int i = 0; i < nnStruct[k + 1]; ++i) {
-  //       float result = 0;
-  //       for (int j = 0; j < nnStruct[k]; ++j) {
-  //         result += wholeNeurons[k][j].getValue() * weightMatrix[k](j,
-  //         i);
-  //       }
-  //       wholeNeurons[k + 1][i].setValue(result +
-  //                                       wholeNeurons[k +
-  //                                       1][i].getBias());
-  //       wholeNeurons[k + 1][i].activate();
-  //     }
-  //   }
-  // }
+  void feedForward(std::vector<float> &input) {
+    for (int i = 0; i < nnInputSize; ++i) {
+      neurons[i].setValue(input[i]);
+    }
 
-  // float layerSum(std::vector<Neuron> &errors, Layer &weight, int index) {
-  //   float result = 0;
-  //   for (size_t j = 0; j < weight.getRightNeurons(); ++j) {
-  //     result += weight(index, j) * errors[j].getError();
-  //   }
-  //   return result;
-  // }
+    for (int k = 0; k < layersSize; ++k) {
+      for (int i = sumStruct(k + 1); i < sumStructInclude(k + 1); ++i) {
+        float result = 0;
+        for (int j = sumStruct(k); j < sumStruct(k + 1); ++j) {
+          result += neurons[j].getValue() * adjMatrix_[j][i];
+        }
+        neurons[i].setValue(result + neurons[i].getBias());
+        neurons[i].activate();
+      }
+    }
+  }
 
-  // void train(int answer, std::vector<float> &input) {
-  //   feedForward(input);
+  float layerSum(std::vector<std::vector<float>> &weight, int index) {
+    float result = 0;
+    for (int j = 0; j < totalNeurons; ++j) {
+      if (weight[index][j] != INF) {
+        result += weight[index][j] * neurons[j].getError();
+      }
+    }
+    return result;
+  }
 
-  //   for (int i = 0; i < nnOutputSize; ++i) {
-  //     float t = (i == answer) ? 1.0 : 0.0;
-  //     wholeNeurons[layersSize][i].setError(
-  //         (t - wholeNeurons[layersSize][i].getValue()) *
-  //         wholeNeurons[layersSize][i].sigmoidDx());
+  void train(int answer, std::vector<float> &input) {
+    feedForward(input);
 
-  //     wholeNeurons[layersSize][i].setBias(
-  //         wholeNeurons[layersSize][i].getBias() +
-  //         learn * wholeNeurons[layersSize][i].getError());
-  //   }
+    for (int i = sumStruct(layersSize); i < nnOutputSize; ++i) {
+      float t = (i == answer) ? 1.0 : 0.0;
+      neurons[i].setError((t - neurons[i].getValue()) * neurons[i].sigmoidDx());
+      neurons[i].setBias(neurons[i].getBias() + learn * neurons[i].getError());
+    }
 
-  //   for (int k = layersSize - 1; k > 0; --k) {
-  //     for (int i = 0; i < nnStruct[k]; ++i) {
-  //       wholeNeurons[k][i].setError(
-  //           layerSum(wholeNeurons[k + 1], weightMatrix[k], i) *
-  //           wholeNeurons[k][i].sigmoidDx());
-  //       wholeNeurons[k][i].setBias(wholeNeurons[k][i].getBias() +
-  //                                  learn *
-  //                                  wholeNeurons[k][i].getError());
-  //     }
-  //   }
+    for (int k = layersSize - 1; k > 0; --k) {  // MB REDO WITHOUT THIS!
+      for (int i = sumStructInclude(k) - 1; i > sumStruct(k); --i) {
+        neurons[i].setError(layerSum(adjMatrix_, i) * neurons[i].sigmoidDx());
+        neurons[i].setBias(neurons[i].getBias() +
+                           learn * neurons[i].getError());
+      }
+    }
 
-  //   for (int k = layersSize - 1; k >= 0; --k) {
-  //     for (int i = 0; i < nnStruct[k]; ++i) {
-  //       float tmp = wholeNeurons[k][i].getValue() * learn;
-  //       for (int j = 0; j < nnStruct[k + 1]; ++j) {
-  //         weightMatrix[k](i, j) += wholeNeurons[k + 1][j].getError() *
-  //         tmp;
-  //       }
-  //     }
-  //   }
-  // }
+    // for (int k = layersSize - 1; k >= 0; --k) {
+    //   for (int i = 0; i < nnStruct[k]; ++i) {
+    //     float tmp = wholeNeurons[k][i].getValue() * learn;
+    //     for (int j = 0; j < nnStruct[k + 1]; ++j) {
+    //       weightMatrix[k](i, j) += wholeNeurons[k + 1][j].getError() * tmp;
+    //     }
+    //   }
+    // }
+
+    for (int i = sumStruct(layersSize); i >= 0; --i) {
+      for (int j = 0; j < totalNeurons; ++j) {
+        if (adjMatrix_[i][j] != INF) {
+          adjMatrix_[i][j] +=
+              neurons[i].getValue() * neurons[j].getError() * learn;
+        }
+      }
+    }
+  }
 
   // bool results(int ans, std::vector<Neuron> &out) {
   //   int outIndex = 0;
@@ -294,46 +275,58 @@ void shuffleData(std::vector<std::pair<int, std::vector<float>>> &trSet) {
 
 int main() {
   NN one(2);
-  for (auto &data : one.allGraphs)
-    std::cout << data.getLeft()->getId() << " - " << data.getRight()->getId()
-              << " " << std::endl;
-  // std::string trainFile =
-  //     "/Users/morfinov/Downloads/emnist-letters/emnist-letters-train.csv";
-  // std::string testFile =
-  //     "/Users/morfinov/Downloads/emnist-letters/emnist-letters-test.csv";
-  // int lineC = lineCount(trainFile);
-  // int lineT = lineCount(testFile);
-  // int epoch = 0;
-  // float mseKon = 1.0 / one.nnOutputSize;
-  // std::cout << "NN structure - ";
-  // one.printStructure();
-  // std::cout << std::endl;
-  // std::vector<std::pair<int, std::vector<float>>> trSet(lineC);
-  // parseData(trainFile, trSet);
-  // std::vector<std::pair<int, std::vector<float>>> testSet(lineT);
-  // parseData(testFile, testSet);
-  // std::cout << "Start train" << std::endl;
-  // while (epoch < 5) {
-  //   auto t1 = std::chrono::high_resolution_clock::now();
-  //   for (int i = 0; i < lineC; ++i) {
-  //     one.train(trSet[i].first, trSet[i].second);
-  //     one.mse.push_back(one.mean(trSet[i].first) * mseKon);
-  //   }
-  //   auto t2 = std::chrono::high_resolution_clock::now();
-  //   auto duration =
-  //       std::chrono::duration_cast<std::chrono::seconds>(t2 -
-  //       t1).count();
-  //   shuffleData(trSet);
-
-  //   std::cout << ++epoch << std::fixed << std::setprecision(4)
-  //             << " epoch has ended " << std::endl;
-  //   std::cout << std::fixed << std::setprecision(4) << "error - "
-  //             << std::reduce(one.mse.begin(), one.mse.end()) / 88800
-  //             << std::endl;
-  //   std::cout << "time - " << duration << std::endl;
-  //   one.accur(testSet);
+  // for (int i = 0; i < 1045; ++i) {
+  //   if (one.adjMatrix_[914][i] != INF) c++;
   // }
-  // std::cout << "Train end" << std::endl;
+  // std::cout << c << std::endl;
+  // for (int i = 1045; i < 1500; ++i) {
+  //   std::cout << one.adjMatrix_[914][i] << std::endl;
+  // }
+
+  // std::cout << one.adjMatrix_[914].size() << std::endl;
+
+  // for (auto &data : one.allGraphs)
+  //   std::cout << data.getLeft()->getId() << " - " <<
+  //   data.getRight()->getId()
+  //             << " " << std::endl;
+  std::string trainFile =
+      "/Users/morfinov/Downloads/emnist-letters/emnist-letters-train.csv";
+  std::string testFile =
+      "/Users/morfinov/Downloads/emnist-letters/emnist-letters-test.csv";
+  int lineC = lineCount(trainFile);
+  int lineT = lineCount(testFile);
+  int epoch = 0;
+  // float mseKon = 1.0 / one.nnOutputSize;
+  std::cout << "NN structure - ";
+  one.printStructure();
+  std::cout << std::endl;
+  std::vector<std::pair<int, std::vector<float>>> trSet(lineC);
+  parseData(trainFile, trSet);
+  std::vector<std::pair<int, std::vector<float>>> testSet(lineT);
+  parseData(testFile, testSet);
+  one.feedForward(trSet[0].second);
+  // one.printOut();
+  std::cout << "Start train" << std::endl;
+  while (epoch < 1) {
+    auto t1 = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < lineC; ++i) {
+      one.train(trSet[i].first, trSet[i].second);
+      // one.mse.push_back(one.mean(trSet[i].first) * mseKon);
+    }
+    auto t2 = std::chrono::high_resolution_clock::now();
+    auto duration =
+        std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count();
+    shuffleData(trSet);
+
+    std::cout << ++epoch << std::fixed << std::setprecision(4)
+              << " epoch has ended " << std::endl;
+    std::cout << std::fixed << std::setprecision(4) << "error - "
+              << std::reduce(one.mse.begin(), one.mse.end()) / 88800
+              << std::endl;
+    std::cout << "time - " << duration << std::endl;
+    // one.accur(testSet);
+  }
+  std::cout << "Train end" << std::endl;
 
   return 0;
 }
