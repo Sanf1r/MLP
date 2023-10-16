@@ -29,17 +29,26 @@
 // };
 
 int main() {
-  int one[] = {1, 2};
-  int length = sizeof(one) / sizeof(int);
-  int k = 2;
-  for (int i = 0; i < k; ++i) {
-    int tmp = one[length - 1];
-    for (int i = length - 1; i > 0; --i) {
-      one[i] = one[i - 1];
-    }
-    one[0] = tmp;
-  }
-  for (auto data : one) std::cout << data << std::endl;
+  std::random_device dev;
+  std::mt19937 rng(dev());
+  std::uniform_real_distribution<float> gen(-(std::sqrt(6.0) / std::sqrt(2)),
+                                            (std::sqrt(6.0) / std::sqrt(2)));
+  for (int i = 0; i < 100; ++i) std::cout << gen(rng) << std::endl;
+  // int nums[] = {1, 2, 3, 4, 5};
+  // int length = sizeof(nums) / sizeof(int);
+  // int k = 2;
+  // int index = length % k;
+  // std::vector<int> test;
+  // for (int i = index; i < length; ++i) {
+  //   test.push_back(nums[i]);
+  // }
+  // for (int i = 0; i < index; ++i) {
+  //   test.push_back(nums[i]);
+  // }
+  // for (int i = 0; i < length; ++i) {
+  //   nums[i] = test[i];
+  // }
+  // for (auto data : nums) std::cout << data << std::endl;
   // std::vector<float> one = {1, 2, 3, 10, 4, 5};
   // std::vector<double> two = {1, 2, 3, 4, 5};
   // shuffle(one, two);
