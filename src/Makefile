@@ -24,13 +24,14 @@ clean:
 	rm -rf build
 	rm -rf $(FILE_NAME_L)
 	rm -f $(FILE_NAME_L).tar.gz
+	rm -rf doxygen/html
+	rm -rf doxygen/latex
 
 .PHONY: dvi
-dvi2: 
-	makeinfo --html $(FILE_NAME_L).texi
-	open $(FILE_NAME_L)/index.html 
+dvi: 
+	cd doxygen && doxygen Doxyfile && open html/index.html
 
 .PHONY: dist
 dist:
-	tar czvf $(FILE_NAME_L).tar.gz ./Model ./View ./Controller \
+	tar czvf $(FILE_NAME_L).tar.gz ./Model ./View ./Controller ./doxygen \
 	CMakeLists.txt main.cc Makefile $(FILE_NAME_L).texi
