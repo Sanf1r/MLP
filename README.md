@@ -43,4 +43,5 @@ This project:
 After you build programm with **make** command:
 1) If you dont want to train network you can load trained weights from file included in project and proceed to demonstration tab to try letter recognition.
 2) If you want train, in **datasets** directory present EMNIST-letters. Unzip it, add train and test files in programm interface, select all the settings you want and then hit **train**. After that wait for training to finish you will see overall statistics.
+3) ...
 
