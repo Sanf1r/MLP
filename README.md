@@ -6,6 +6,10 @@ Tested on MacOS Big Sur 11.6.6.
 
 Made on October 25 2023 as part of my education in School 21 :)
 
+<img width="1030" alt="MLP_main_screen" src="https://github.com/Sanf1r/MLP/assets/100280376/45fe41be-3923-480c-8348-5755f9161d36">
+
+https://github.com/Sanf1r/MLP/assets/100280376/81e0391d-fd8f-4472-916d-d0878f6fc698
+
 # Information
 
 This project:
